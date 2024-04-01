@@ -23,12 +23,14 @@
 //! ```
 use std::error::Error;
 use std::future::Future;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs};
+use std::iter::FromIterator;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::task::{Context, Poll};
 use std::{fmt, io, vec};
 
+use tokio::net::lookup_host;
 use tokio::task::JoinHandle;
 use tower_service::Service;
 use tracing::debug;
@@ -118,11 +120,14 @@ impl Service<Name> for GaiResolver {
     }
 
     fn call(&mut self, name: Name) -> Self::Future {
-        let blocking = tokio::task::spawn_blocking(move || {
+        let blocking = tokio::task::spawn(async move {
             debug!("resolving host={:?}", name.host);
-            (&*name.host, 0)
-                .to_socket_addrs()
-                .map(|i| SocketAddrs { iter: i })
+            lookup_host((&*name.host, 0u16)).await.map(|i| {
+                let addr = Vec::from_iter(i);
+                SocketAddrs {
+                    iter: addr.into_iter(),
+                }
+            })
         });
 
         GaiFuture { inner: blocking }

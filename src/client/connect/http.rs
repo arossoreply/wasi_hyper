@@ -626,13 +626,13 @@ fn connect(
     )
     .map_err(ConnectError::m("tcp bind local error"))?;
 
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     let socket = unsafe {
         // Safety: `from_raw_fd` is only safe to call if ownership of the raw
         // file descriptor is transferred. Since we call `into_raw_fd` on the
         // socket2 socket, it gives up ownership of the fd and will not close
         // it, so this is safe.
-        use std::os::unix::io::{FromRawFd, IntoRawFd};
+        use std::os::fd::{FromRawFd, IntoRawFd};
         TcpSocket::from_raw_fd(socket.into_raw_fd())
     };
     #[cfg(windows)]
